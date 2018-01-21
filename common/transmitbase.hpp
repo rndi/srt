@@ -83,7 +83,7 @@ public:
 class Target: public Location
 {
 public:
-    virtual void Write(const bytevector& portion) = 0;
+    virtual bool Write(const bytevector& portion) = 0;
     virtual bool IsOpen() = 0;
     virtual bool Broken() = 0;
     virtual void Close() {}

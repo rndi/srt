@@ -129,7 +129,7 @@ public:
     SrtTarget() {}
 
     int ConfigurePre(SRTSOCKET sock) override;
-    void Write(const bytevector& data) override;
+    bool Write(const bytevector& data) override;
     bool IsOpen() override { return IsUsable(); }
     bool Broken() override { return IsBroken(); }
     void Close() override { return SrtCommon::Close(); }

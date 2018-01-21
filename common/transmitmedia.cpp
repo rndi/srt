@@ -68,9 +68,10 @@ public:
 
     FileTarget(const string& path): ofile(path, ios::out | ios::trunc | ios::binary) {}
 
-    void Write(const bytevector& data) override
+    bool Write(const bytevector& data) override
     {
         ofile.write(data.data(), data.size());
+        return !(ofile.bad());
     }
 
     bool IsOpen() override { return !!ofile; }
@@ -639,11 +640,16 @@ int SrtTarget::ConfigurePre(SRTSOCKET sock)
     return 0;
 }
 
-void SrtTarget::Write(const bytevector& data) 
+bool SrtTarget::Write(const bytevector& data) 
 {
     int stat = srt_sendmsg2(m_sock, data.data(), data.size(), nullptr);
     if ( stat == SRT_ERROR )
-        Error(UDT::getlasterror(), "srt_sendmsg");
+    {
+        if (m_blocking_mode)
+            Error(UDT::getlasterror(), "srt_sendmsg");
+        return false;
+    }
+    return true;
 }
 
 SrtModel::SrtModel(string host, int port, map<string,string> par)
@@ -775,9 +781,10 @@ public:
     {
     }
 
-    void Write(const bytevector& data) override
+    bool Write(const bytevector& data) override
     {
         cout.write(data.data(), data.size());
+        return true;
     }
 
     bool IsOpen() override { return cout.good(); }
@@ -1016,11 +1023,16 @@ public:
         Setup(host, port, attr);
     }
 
-    void Write(const bytevector& data) override
+    bool Write(const bytevector& data) override
     {
         int stat = sendto(m_sock, data.data(), data.size(), 0, (sockaddr*)&sadr, sizeof sadr);
         if ( stat == -1 )
-            Error(SysError(), "UDP Write/sendto");
+        {
+            if ((false))
+                Error(SysError(), "UDP Write/sendto");
+            return false;
+        }
+        return true;
     }
 
     bool IsOpen() override { return m_sock != -1; }
@@ -1054,8 +1066,6 @@ extern unique_ptr<Base> CreateMedium(const string& uri)
     {
     default:
         break; // do nothing, return nullptr
-// Disable file support for the moment
-#if 0
     case UriParser::FILE:
         if ( u.host() == "con" || u.host() == "console" )
         {
@@ -1069,10 +1079,12 @@ extern unique_ptr<Base> CreateMedium(const string& uri)
             }
             ptr.reset( CreateConsole<Base>() );
         }
+// Disable regular file support for the moment
+#if 0
         else
             ptr.reset( CreateFile<Base>(u.path()));
-        break;
 #endif
+        break;
 
     case UriParser::SRT:
         iport = atoi(u.port().c_str());

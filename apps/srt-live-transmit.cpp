@@ -388,13 +388,18 @@ int main( int argc, char** argv )
     unique_ptr<Target> tar;
     bool tarConnected = false;
 
-    extern logging::Logger glog;
     int pollid = srt_epoll_create();
     if ( pollid < 0 )
     {
         cerr << "Can't initialize epoll";
         return 1;
     }
+
+    size_t receivedBytes = 0;
+    size_t wroteBytes = 0;
+    size_t lostBytes = 0;
+    size_t lastReportedtLostBytes = 0;
+    std::time_t writeErrorLogTimer(std::time(nullptr));
 
     try {
         // Now loop until broken
@@ -433,7 +438,7 @@ int main( int argc, char** argv )
                     if (srt_epoll_add_ssock(pollid,
                             src->GetSysSocket(), &events))
                     {
-                        cerr << "Failed to add UDP source to poll, "
+                        cerr << "Failed to add FILE source to poll, "
                             << src->GetSysSocket() << endl;
                         return 1;
                     }
@@ -441,6 +446,8 @@ int main( int argc, char** argv )
                 default:
                     break;
                 }
+
+                receivedBytes = 0;
             }
 
             if (!tar.get())
@@ -468,6 +475,10 @@ int main( int argc, char** argv )
                 default:
                     break;
                 }
+
+                wroteBytes = 0;
+                lostBytes = 0;
+                lastReportedtLostBytes = 0;
             }
 
             int srtrfdslen = 2;
@@ -633,6 +644,7 @@ int main( int argc, char** argv )
                             break;
                         }
                         dataqueue.push_back(pdata);
+                        receivedBytes += (*pdata).size();
                     }
                 }
 
@@ -640,11 +652,27 @@ int main( int argc, char** argv )
                 while (tar.get() && !dataqueue.empty())
                 {
                     std::shared_ptr<bytevector> pdata = dataqueue.front();
-                    if (tar->IsOpen())
-                    {
-                        tar->Write(*pdata);
-                    }
+                    if (!tar->IsOpen() || !tar->Write(*pdata))
+                        lostBytes += (*pdata).size();
+
+                    else
+                        wroteBytes += (*pdata).size();
+
                     dataqueue.pop_front();
+                }
+
+                if (!quiet && (lastReportedtLostBytes != lostBytes))
+                {
+                    std::time_t now(std::time(nullptr));
+                    if (std::difftime(now, writeErrorLogTimer) >= 5.0)
+                    {
+                        cout << lostBytes << " bytes lost, "
+                            << wroteBytes << " bytes sent, "
+                            << receivedBytes << " bytes received"
+                            << endl;
+                        writeErrorLogTimer = now;
+                        lastReportedtLostBytes = lostBytes;
+                    }
                 }
             }
         }
