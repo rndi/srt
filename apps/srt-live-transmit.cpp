@@ -538,7 +538,7 @@ int main( int argc, char** argv )
                                 break;
                             }
 
-                            srt_epoll_remove_usock(pollid, res);
+                            srt_epoll_remove_usock(pollid, s);
 
                             SRTSOCKET ns = (issource) ?
                                 src->GetSRTSocket() : tar->GetSRTSocket();
@@ -549,12 +549,19 @@ int main( int argc, char** argv )
                                     << ns << endl;
                                 doabort = true;
                             }
-                            else if (!quiet)
+                            else
                             {
-                                cout << "Accepting SRT "
-                                    << dirstring
-                                    <<  " connection"
-                                    << endl;
+                                if (!quiet)
+                                {
+                                    cout << "Accepted SRT "
+                                        << dirstring
+                                        <<  " connection"
+                                        << endl;
+                                }
+                                if (issource)
+                                    srcConnected = true;
+                                else
+                                    tarConnected = true;
                             }
                         }
                         break;
@@ -574,7 +581,7 @@ int main( int argc, char** argv )
                                     srcConnected = false;
                                 }
                             }
-                            else if (!tarConnected)
+                            else if (tarConnected)
                             {
                                 if (!quiet)
                                     cout << "SRT target disconnected" << endl;

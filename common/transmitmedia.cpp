@@ -261,6 +261,7 @@ bool SrtCommon::AcceptNewClient()
     if ( m_sock == SRT_INVALID_SOCK )
     {
         srt_close(m_bindsock);
+        m_bindsock = SRT_INVALID_SOCK;
         Error(UDT::getlasterror(), "srt_accept");
     }
 
@@ -269,6 +270,7 @@ bool SrtCommon::AcceptNewClient()
         // we do one client connection at a time,
         // so close the listener.
         srt_close(m_bindsock);
+        m_bindsock = SRT_INVALID_SOCK;
     }
 
     if ( transmit_verbose )
